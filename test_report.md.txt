@@ -1,0 +1,8 @@
+# Integration Test Report
+
+- **API Fetch & Loading State:** Verified loading banner displays while `GET /api/internships` is in flight, then renders internship cards and dropdown options.
+- **Failure & Retry State:** Simulated server error/offline state; verified error message and **Retry Loading** button appear and successfully reload data on click.
+- **Client-Side Form Validation:** Tested empty fields, invalid email format, and short cover note; verified inline validation errors block invalid submission.
+- **Server-Side Form Validation:** Sent direct `POST /api/applications` requests with invalid payloads; verified `400 Bad Request` responses with descriptive validation errors.
+- **Persistence:** Verified valid application submissions return `201 Created` and persist rows in SQLite `applications` table.
+-

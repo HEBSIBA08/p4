@@ -1,0 +1,8 @@
+# Security Checklist
+
+- [x] **Rate Limiting:** Configured `express-rate-limit` on `/api` routes to mitigate brute-force and spam requests.
+- [x] **Secure HTTP Headers:** Enabled `helmet` middleware to set standard protective HTTP response headers.
+- [x] **Parameterized Queries:** Used `?` placeholders in all `sqlite3` queries (`SELECT`, `INSERT`) to prevent SQL injection.
+- [x] **Input Validation:** Validated and trimmed required fields on both client and server (`POST /api/applications`).
+- [x] **Output Escaping:** Escaped dynamic strings when rendering HTML in the frontend to reduce XSS risk.
+-

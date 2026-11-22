@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Internship Board — Integrated</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 820px; margin: 2rem auto; padding: 0 1rem; }
+    .status-box { padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
+    .loading { background: #eef4ff; color: #1d4ed8; }
+    .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .card { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; }
+    .field { margin-bottom: 0.75rem; }
+    label { display: block; font-weight: bold; margin-bottom: 0.25rem; }
+    input, select, textarea { width: 100%; padding: 0.5rem; box-sizing: border-box; }
+    button { padding: 0.55rem 1rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Internship Listings</h1>
+
+  <div id="list-status" class="status-box loading">Loading internships...</div>
+  <button id="retry-btn" style="display:none; margin-bottom:1rem;">Retry Loading</button>
+  <div id="internships-list"></div>
+
+  <hr />
+  <h2>Apply for an Internship</h2>
+  <div id="form-feedback" style="display:none;" class="status-box"></div>
+
+  <form id="apply-form" novalidate>
+    <div class="field">
+      <label for="internship_id">Internship Role</label>
+      <select id="internship_id" name="internship_id" required>
+        <option value="">Select an internship</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="applicant_name">Full Name</label>
+      <input id="applicant_name" name="applicant_name" type="text" required />
+    </div>
+
+    <div class="field">
+      <label for="email">Email Address</label>
+      <input id="email" name="email" type="email" required />
+    </div>
+
+    <div class="field">
+      <label for="cover_note">Why are you a good fit? (min 10 characters)</label>
+      <textarea id="cover_note" name="cover_note" rows="3" required></textarea>
+    </div>
+
+    <button id="submit-btn" type="submit">Submit Application</button>
+  </form>
+
+  <script>
+    const API_BASE = "http://localhost:3000/api";
+    const listStatus = document.getElementById("list-status");
+    const retryBtn = document.getElementById("retry-btn");
+    const listEl = document.getElementById("internships-list");
+    const selectEl = document.getElementById("internship_id");
+    const formEl = document.getElementById("apply-form");
+    const feedbackEl = document.getElementById("form-feedback");
+    const submitBtn = document.getElementById("submit-btn");
+
+    async function loadInternships() {
+      listStatus.className = "status-box loading";
+      listStatus.style.display = "block";
+      listStatus.textContent = "Loading internships...";
+      retryBtn.style.display = "none";
+      listEl.innerHTML = "";
+
+      try {
+        const res = await fetch(`${API_BASE}/internships?page=1&limit=20`);
+        if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+        const payload = await res.json();
+        const items = payload.data || [];
+
+        listStatus.style.display = "none";
+        selectEl.innerHTML = '<option value="">Select an internship</option>';
+
+        if (items.length === 0) {
+          listEl.innerHTML = "<p>No internships available right now.</p>";
+          return;
+        }
+
+        items.forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <strong>${escapeHtml(item.title)}</strong> — ${escapeHtml(item.company)}<br/>
+            <span>${escapeHtml(item.location)} (${escapeHtml(item.mode)}) | Stipend: ${escapeHtml(item.stipend)}</span>
+          `;
+          listEl.appendChild(card);
+
+          const opt = document.createElement("option");
+          opt.value = item.id;
+          opt.textContent = `${item.title} (${item.company})`;
+          selectEl.appendChild(opt);
+        });
+      } catch (err) {
+        listStatus.className = "status-box error";
+        listStatus.textContent = `Could not load internships: ${err.message}`;
+        retryBtn.style.display = "inline-block";
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function showFeedback(type, messages) {
+      feedbackEl.className = `status-box ${type}`;
+      feedbackEl.style.display = "block";
+      feedbackEl.innerHTML = Array.isArray(messages)
+        ? `<ul>${messages.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}</ul>`
+        : escapeHtml(messages);
+    }
+
+    retryBtn.addEventListener("click", loadInternships);
+
+    formEl.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const internship_id = selectEl.value;
+      const applicant_name = document.getElementById("applicant_name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const cover_note = document.getElementById("cover_note").value.trim();
+
+      const clientErrors = [];
+      if (!internship_id) clientErrors.push("Please select an internship.");
+      if (applicant_name.length < 2) clientErrors.push("Please enter your full name.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) clientErrors.push("Please enter a valid email.");
+      if (cover_note.length < 10) clientErrors.push("Cover note must be at least 10 characters.");
+
+      if (clientErrors.length > 0) {
+        showFeedback("error", clientErrors);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting...";
+
+      try {
+        const res = await fetch(`${API_BASE}/applications`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ internship_id, applicant_name, email, cover_note })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showFeedback("error", data.errors || [data.error || "Submission failed."]);
+        } else {
+          showFeedback("success", `Application submitted! Reference ID: #${data.applicationId}`);
+          formEl.reset();
+        }
+      } catch (err) {
+        showFeedback("error", `Network error: ${err.message}`);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Application";
+      }
+    });
+
+    loadInternships();
+  </script>
+</body>
+</html>
